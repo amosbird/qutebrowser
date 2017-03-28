@@ -349,7 +349,7 @@ class IPCServer(QObject):
             if self._old_socket is None:
                 log.ipc.warning("In on_ready_read with None socket and old_socket!")
                 return
-            log.ipc.warning("In on_ready_read with None socket!")
+            log.ipc.debug("In on_ready_read with None socket!")
             socket = self._old_socket
         else:
             socket = self._socket
