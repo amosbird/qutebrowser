@@ -38,11 +38,11 @@ from qutebrowser.commands import userscripts, runners
 from qutebrowser.api import cmdutils
 from qutebrowser.utils import usertypes, log, qtutils, message, objreg, utils
 
-
 Target = enum.Enum('Target', ['normal', 'current', 'tab', 'tab_fg', 'tab_bg',
                               'window', 'yank', 'yank_primary', 'run', 'fill',
                               'hover', 'download', 'userscript', 'spawn'])
 
+import json
 
 class HintingError(Exception):
 
@@ -389,6 +389,9 @@ class HintManager(QObject):
         self._context = None
         self._word_hinter = WordHinter()
 
+        with open(os.path.dirname(__file__) + "/amoshint.json", encoding="UTF-8") as hintfile:
+            self.amoshint = json.load(hintfile)
+
         self._actions = HintActions(win_id)
 
         mode_manager = objreg.get('mode-manager', scope='window',
@@ -427,22 +430,14 @@ class HintManager(QObject):
         """
         if not elems:
             return []
-        hint_mode = self._context.hint_mode
-        if hint_mode == 'word':
-            try:
-                return self._word_hinter.hint(elems)
-            except HintingError as e:
-                message.error(str(e))
-                # falls back on letter hints
-        if hint_mode == 'number':
-            chars = '0123456789'
+        if len(elems) <= len(self.amoshint["one"]):
+            return self.amoshint["one"][:len(elems)]
+        elif len(elems) <= len(self.amoshint["two"]):
+            return self.amoshint["two"][:len(elems)]
+        elif len(elems) <= len(self.amoshint["three"]):
+            return self.amoshint["three"][:len(elems)]
         else:
-            chars = config.val.hints.chars
-        min_chars = config.val.hints.min_chars
-        if config.val.hints.scatter and hint_mode != 'number':
-            return self._hint_scattered(min_chars, chars, elems)
-        else:
-            return self._hint_linear(min_chars, chars, elems)
+            raise HintingError('Too many elements to hint!')
 
     def _hint_scattered(self, min_chars, chars, elems):
         """Produce scattered hint labels with variable length (like Vimium).
@@ -629,7 +624,7 @@ class HintManager(QObject):
                        star_args_optional=True, maxsplit=2)
     def start(self,  # pylint: disable=keyword-arg-before-vararg
               group='all', target=Target.normal, *args, mode=None,
-              add_history=False, rapid=False, first=False):
+              add_history=False, rapid=False, first=False, visible=False):
         """Start hinting.
 
         Args:
@@ -738,11 +733,18 @@ class HintManager(QObject):
         except webelem.Error as e:
             raise cmdutils.CommandError(str(e))
 
-        self._context.tab.elements.find_css(
-            selector,
-            callback=self._start_cb,
-            error_cb=lambda err: message.error(str(err)),
-            only_visible=True)
+        if (first and group == 'inputs'):
+            self._context.tab.elements.find_css(
+                selector,
+                callback=self._start_cb,
+                error_cb=lambda err: message.error(str(err)),
+                only_visible=visible)
+        else:
+            self._context.tab.elements.find_css(
+                selector,
+                callback=self._start_cb,
+                error_cb=lambda err: message.error(str(err)),
+                only_visible=True)
 
     def _get_hint_mode(self, mode):
         """Get the hinting mode to use based on a mode argument."""

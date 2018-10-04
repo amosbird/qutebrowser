@@ -171,6 +171,7 @@ class StatusBar(QWidget):
         self._stack.setContentsMargins(0, 0, 0, 0)
 
         self.cmd = command.Command(private=private, win_id=win_id)
+        self.cmd.setContentsMargins(400, 0, 0, 0)
         self._stack.addWidget(self.cmd)
         objreg.register('status-command', self.cmd, scope='window',
                         window=win_id)
@@ -218,10 +219,10 @@ class StatusBar(QWidget):
 
         # Read the list and set widgets accordingly
         for segment in config.val.statusbar.widgets:
-            if segment == 'url':
-                self._hbox.addWidget(self.url)
-                self.url.show()
-            elif segment == 'scroll':
+            # if segment == 'url':
+                # self._hbox.addWidget(self.url)
+                # self.url.show()
+            if segment == 'scroll':
                 self._hbox.addWidget(self.percentage)
                 self.percentage.show()
             elif segment == 'scroll_raw':

@@ -695,6 +695,16 @@ class AbstractElements:
         """
         raise NotImplementedError
 
+    def find_css_first_focus(self, selector, callback, *, only_visible=False):
+        """Find all HTML elements matching a given selector async.
+
+        Args:
+            callback: The callback to be called when the search finished.
+            selector: The CSS selector to search for.
+            only_visible: Only show elements which are visible on screen.
+        """
+        raise NotImplementedError
+
     def find_id(self, elem_id: str, callback: _SingleCallback) -> None:
         """Find the HTML element with the given ID async.
 

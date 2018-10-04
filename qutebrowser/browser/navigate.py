@@ -74,10 +74,18 @@ def _find_prevnext(prev, elems):
     # First check for <link rel="prev(ious)|next">
     rel_values = {'prev', 'previous'} if prev else {'next'}
     for e in elems:
-        if e.tag_name() not in ['link', 'a'] or 'rel' not in e:
+        if e.tag_name() in ['link', 'a']:
+            if 'rel' in e and set(e['rel'].split(' ')) & rel_values:
+                log.hints.debug("Found {!r} with rel={}".format(e, e['rel']))
+                return e
+            if 'class' in e and set(e['class'].split(' ')) & rel_values:
+                log.hints.debug("Found {!r} with rel={}".format(e, e['class']))
+                return e
+
+    for e in elems:
+        if e.tag_name() not in ['input'] or 'value' not in e:
             continue
-        if set(e['rel'].split(' ')) & rel_values:
-            log.hints.debug("Found {!r} with rel={}".format(e, e['rel']))
+        if e['type'] == 'submit' and set(e['value'].split(' ')) & rel_values:
             return e
 
     # Then check for regular links/buttons.
@@ -124,7 +132,7 @@ def prevnext(*, browsertab, win_id, baseurl, prev=False,
             return
         url = elem.resolve_url(baseurl)
         if url is None:
-            message.error("No {} links found!".format(word))
+            elem._js_call('click')
             return
         qtutils.ensure_valid(url)
 

@@ -212,15 +212,15 @@ def _init_icon():
 
 def _process_args(args):
     """Open startpage etc. and process commandline args."""
-    if not args.override_restore:
-        _load_session(args.session)
-    session_manager = objreg.get('session-manager')
-    if not session_manager.did_load:
-        log.init.debug("Initializing main window...")
-        window = mainwindow.MainWindow(private=None)
-        if not args.nowindow:
-            window.show()
-        qApp.setActiveWindow(window)
+    # if not args.override_restore:
+    #     _load_session(args.session)
+    # session_manager = objreg.get('session-manager')
+    # if not session_manager.did_load:
+    log.init.debug("Initializing main window...")
+    window = mainwindow.MainWindow(private=None, first=True)
+    if not args.nowindow:
+        window.show()
+    qApp.setActiveWindow(window)
 
     process_pos_args(args.command)
     _open_startpage()

@@ -144,6 +144,32 @@ window._qutebrowser.webelem = (function() {
             const attr = elem.attributes[i];
             attributes[attr.name] = attr.value;
         }
+
+        if (out.tag_name.toLowerCase() === "link" || out.tag_name.toLowerCase() === "a") {
+            var children = elem.childNodes;
+            if (children) {
+                outer:
+                for (let i=0,len=children.length;i<len;i++) {
+                    var child = children[i];
+                    if (!child.attributes) continue;
+                    for (let j=0,len2=child.attributes.length; j<len2;++j) {
+                        const attr = child.attributes[j];
+                        if (attr.name === "alt" && attr.value === "Next") {
+                            attributes["rel"] = "next";
+                            break outer;
+                        }
+                        if (attr.name === "alt" && attr.value === "Previous") {
+                            attributes["rel"] = "prev";
+                            break outer;
+                        }
+                        if (attr.name === "class") {
+                            attributes["class"] = attr.value
+                            break outer;
+                        }
+                    }
+                }
+            }
+        }
         out.attributes = attributes;
 
         const client_rects = elem.getClientRects();
@@ -246,6 +272,91 @@ window._qutebrowser.webelem = (function() {
             }
         }
 
+        return {"success": true, "result": out};
+    };
+
+    funcs.find_css_first_focus = (selector, only_visible) => {
+        let elems;
+
+        try {
+            elems = document.querySelectorAll(selector);
+        } catch (ex) {
+            return {"success": false, "error": ex.toString()};
+        }
+
+        const subelem_frames = window.frames;
+        const out = [];
+
+        if (!only_visible) { // first
+            for (let i = 0; i < elems.length; ++i) {
+                if (is_visible(elems[i])) {
+                    out.push(serialize_elem(elems[i]));
+                } else {
+                    elems[i].scrollIntoView({block: "center", inline: "nearest"});
+                    out.push(serialize_elem(elems[i]));
+                }
+            }
+
+            // Recurse into frames and add them
+            for (let i = 0; i < subelem_frames.length; i++) {
+                if (iframe_same_domain(subelem_frames[i])) {
+                    const frame = subelem_frames[i];
+                    const subelems = frame.document.
+                          querySelectorAll(selector);
+                    for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
+                        if (is_visible(subelems[elem_num], frame)) {
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                        } else {
+                            subelems[elem_num].scrollIntoView({block: "center", inline: "nearest"});
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                        }
+                    }
+                }
+            }
+        } else { // visible elements take priority
+
+            for (let i = 0; i < elems.length; ++i) {
+                if (is_visible(elems[i])) {
+                    out.push(serialize_elem(elems[i]));
+                }
+            }
+
+            // Recurse into frames and add them
+            for (let i = 0; i < subelem_frames.length; i++) {
+                if (iframe_same_domain(subelem_frames[i])) {
+                    const frame = subelem_frames[i];
+                    const subelems = frame.document.
+                          querySelectorAll(selector);
+                    for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
+                        if (is_visible(subelems[elem_num], frame)) {
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                        }
+                    }
+                }
+            }
+
+            for (let i = 0; i < elems.length; ++i) {
+                if (!is_visible(elems[i])) {
+                    elems[i].scrollIntoView({block: "center", inline: "nearest"});
+                    out.push(serialize_elem(elems[i]));
+                }
+            }
+
+            // Recurse into frames and add them
+            for (let i = 0; i < subelem_frames.length; i++) {
+                if (iframe_same_domain(subelem_frames[i])) {
+                    const frame = subelem_frames[i];
+                    const subelems = frame.document.
+                          querySelectorAll(selector);
+                    for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
+                        if (!is_visible(subelems[elem_num], frame)) {
+                            subelems[elem_num].scrollIntoView({block: "center", inline: "nearest"});
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                        }
+                    }
+                }
+            }
+        }
         return {"success": true, "result": out};
     };
 

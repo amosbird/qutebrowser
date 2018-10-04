@@ -645,6 +645,12 @@ class WebEngineElements(browsertab.AbstractElements):
         js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)
         self._tab.run_js_async(js_code, js_cb)
 
+    def find_css_first_focus(self, selector, callback, *, only_visible=False):
+        js_code = javascript.assemble('webelem', 'find_css_first_focus', selector,
+                                      only_visible)
+        js_cb = functools.partial(self._js_cb_multiple, callback)
+        self._tab.run_js_async(js_code, js_cb)
+
     def find_id(self, elem_id, callback):
         js_code = javascript.assemble('webelem', 'find_id', elem_id)
         js_cb = functools.partial(self._js_cb_single, callback)

@@ -23,7 +23,7 @@ import functools
 
 import attr
 from PyQt5.QtWidgets import QSizePolicy, QWidget, QApplication
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QTimer, QUrl
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QTimer, QUrl, Qt
 from PyQt5.QtGui import QIcon
 
 from qutebrowser.config import config
@@ -583,6 +583,10 @@ class TabbedBrowser(QWidget):
         if idx == self.widget.currentIndex():
             self._update_window_title()
 
+        self.widget.setFocusPolicy(Qt.NoFocus)
+        self.widget.currentWidget().setFocusPolicy(Qt.NoFocus)
+        self.setFocus()
+
     @pyqtSlot()
     def on_cur_load_started(self):
         """Leave insert/hint mode when loading started."""
@@ -655,12 +659,11 @@ class TabbedBrowser(QWidget):
 
     @pyqtSlot(usertypes.KeyMode)
     def on_mode_entered(self, mode):
-        """Save input mode when tabs.mode_on_change = restore."""
-        if (config.val.tabs.mode_on_change == 'restore' and
-                mode in modeman.INPUT_MODES):
-            tab = self.widget.currentWidget()
-            if tab is not None:
-                tab.data.input_mode = mode
+        pass
+        # """Restore focus when entering insert mode if needed."""
+        # if mode in modeman.INPUT_MODES:
+        #     widget = self.widget.currentWidget()
+        #     widget.setFocusPolicy(Qt.StrongFocus)
 
     @pyqtSlot(usertypes.KeyMode)
     def on_mode_left(self, mode):
@@ -668,10 +671,10 @@ class TabbedBrowser(QWidget):
         widget = self.widget.currentWidget()
         if widget is None:
             return
-        if mode in [usertypes.KeyMode.command] + modeman.PROMPT_MODES:
-            log.modes.debug("Left status-input mode, focusing {!r}".format(
-                widget))
-            widget.setFocus()
+        if mode in modeman.INPUT_MODES + [usertypes.KeyMode.command] + modeman.PROMPT_MODES:
+            widget.setFocusPolicy(Qt.NoFocus)
+            self.setFocus()
+            return
         if config.val.tabs.mode_on_change == 'restore':
             widget.data.input_mode = usertypes.KeyMode.normal
 
@@ -687,9 +690,6 @@ class TabbedBrowser(QWidget):
             log.webview.debug("on_current_changed got called with invalid "
                               "index {}".format(idx))
             return
-
-        log.modes.debug("Current tab changed, focusing {!r}".format(tab))
-        tab.setFocus()
 
         modes_to_leave = [usertypes.KeyMode.hint, usertypes.KeyMode.caret]
 

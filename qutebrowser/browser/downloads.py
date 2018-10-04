@@ -1121,6 +1121,32 @@ class DownloadModel(QAbstractListModel):
                 download.remove()
 
     @cmdutils.register(instance='download-model', scope='window')
+    def download_copy(self):
+        """Copy the last download as text/url-list."""
+        try:
+            download = self[-1]
+        except IndexError:
+            self._raise_no_download(count)
+        if download.done:
+            filename = download._get_open_filename()
+            if filename is not None:  # pragma: no cover
+                QTimer.singleShot(0, lambda: utils.open_file(filename, "copyq copyUriList"))
+            download.remove()
+
+    @cmdutils.register(instance='download-model', scope='window')
+    def download_copy_all(self):
+        """Copy all finished downloads as text/url-list."""
+        urllist = []
+        for download in self:
+            if download.done:
+                filename = download._get_open_filename()
+                if filename is not None:  # pragma: no cover
+                    urllist.append(filename)
+                download.remove()
+        if urllist:
+            QTimer.singleShot(0, lambda: utils.open_file('\n'.join(urllist), "copyq copyUriList"))
+
+    @cmdutils.register(instance='download-model', scope='window')
     @cmdutils.argument('count', value=cmdutils.Value.count)
     def download_remove(self, all_=False, count=0):
         """Remove the last/[count]th download from the list.
