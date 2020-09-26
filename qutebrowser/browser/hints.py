@@ -47,6 +47,7 @@ Target = enum.Enum('Target', ['normal', 'current', 'tab', 'tab_fg', 'tab_bg',
                               'hover', 'download', 'userscript', 'spawn',
                               'delete', 'right_click'])
 
+import json
 
 class HintingError(Exception):
 
@@ -382,6 +383,9 @@ class HintManager(QObject):
         self._context = None  # type: typing.Optional[HintContext]
         self._word_hinter = WordHinter()
 
+        with open(os.path.dirname(__file__) + "/amoshint.json", encoding="UTF-8") as hintfile:
+            self.amoshint = json.load(hintfile)
+
         self._actions = HintActions(win_id)
 
         mode_manager = modeman.instance(self._win_id)
@@ -421,24 +425,14 @@ class HintManager(QObject):
         """
         if not elems:
             return []
-
-        assert self._context is not None
-        hint_mode = self._context.hint_mode
-        if hint_mode == 'word':
-            try:
-                return self._word_hinter.hint(elems)
-            except HintingError as e:
-                message.error(str(e))
-                # falls back on letter hints
-        if hint_mode == 'number':
-            chars = '0123456789'
+        if len(elems) <= len(self.amoshint["one"]):
+            return self.amoshint["one"][:len(elems)]
+        elif len(elems) <= len(self.amoshint["two"]):
+            return self.amoshint["two"][:len(elems)]
+        elif len(elems) <= len(self.amoshint["three"]):
+            return self.amoshint["three"][:len(elems)]
         else:
-            chars = config.val.hints.chars
-        min_chars = config.val.hints.min_chars
-        if config.val.hints.scatter and hint_mode != 'number':
-            return self._hint_scattered(min_chars, chars, elems)
-        else:
-            return self._hint_linear(min_chars, chars, elems)
+            raise HintingError('Too many elements to hint!')
 
     def _hint_scattered(self, min_chars: int,
                         chars: str,
@@ -640,7 +634,7 @@ class HintManager(QObject):
                                     window=self._win_id)
         message_bridge.set_text(self._get_text())
 
-        if self._context.first:
+        if self._context.first or self._context.last:
             self._fire(strings[0])
             return
         # to make auto_follow == 'always' work
@@ -655,7 +649,9 @@ class HintManager(QObject):
               mode: str = None,
               add_history: bool = False,
               rapid: bool = False,
-              first: bool = False) -> None:
+              first: bool = False,
+              last: bool = False,
+              visible: bool = False) -> None:
         """Start hinting.
 
         Args:
@@ -752,6 +748,7 @@ class HintManager(QObject):
         self._context.hint_mode = self._get_hint_mode(mode)
         self._context.add_history = add_history
         self._context.first = first
+        self._context.last = last
         try:
             self._context.baseurl = tabbed_browser.current_url()
         except qtutils.QtValueError:
@@ -765,11 +762,24 @@ class HintManager(QObject):
         except webelem.Error as e:
             raise cmdutils.CommandError(str(e))
 
-        self._context.tab.elements.find_css(
-            selector,
-            callback=self._start_cb,
-            error_cb=lambda err: message.error(str(err)),
-            only_visible=True)
+        if (first and group == 'inputs'):
+            self._context.tab.elements.find_css(
+                selector,
+                callback=self._start_cb,
+                error_cb=lambda err: message.error(str(err)),
+                only_visible=visible)
+        elif (last and group == "inputs"):
+            self._context.tab.elements.find_css_last_focus(
+                selector,
+                callback=self._start_cb,
+                error_cb=lambda err: message.error(str(err)),
+                only_visible=visible)
+        else:
+            self._context.tab.elements.find_css(
+                selector,
+                callback=self._start_cb,
+                error_cb=lambda err: message.error(str(err)),
+                only_visible=True)
 
     def _get_hint_mode(self, mode: typing.Optional[str]) -> str:
         """Get the hinting mode to use based on a mode argument."""

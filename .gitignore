@@ -1,3 +1,6 @@
+.direnv
+scripts/dev/pylint_checkers/build/
+scripts/dev/pylint_checkers/dist/
 __pycache__
 *.py~
 *.pyc

@@ -226,11 +226,12 @@ class AbstractWebElement(collections.abc.MutableMapping):
         """
         # Beginnings of div-classes which are actually some kind of editor.
         classes = {
-            'div': ['CodeMirror',  # Javascript editor over a textarea
+            'div': ['jp-CodeMirror',
+                    'CodeMirror',  # Javascript editor over a textarea
                     'kix-',  # Google Docs editor
                     'ace_'],  # http://ace.c9.io/
             'pre': ['CodeMirror'],
-            'span': ['cm-'],  # Jupyter Notebook
+            'span': ['cm-', 'CodeMirror'],
         }
         relevant_classes = classes[self.tag_name()]
         for klass in self.classes():
@@ -248,7 +249,7 @@ class AbstractWebElement(collections.abc.MutableMapping):
         Return:
             True if we should switch to insert mode, False otherwise.
         """
-        roles = ('combobox', 'textbox')
+        roles = ('combobox', 'textbox', 'presentation')
         log.webelem.debug("Checking if element is editable: {}".format(
             repr(self)))
         tag = self.tag_name()

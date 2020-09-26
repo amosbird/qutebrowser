@@ -31,6 +31,7 @@ except ImportError:
 from qutebrowser.browser import qutescheme
 from qutebrowser.utils import log, qtutils
 
+import subprocess
 
 class QuteSchemeHandler(QWebEngineUrlSchemeHandler):
 
@@ -47,6 +48,9 @@ class QuteSchemeHandler(QWebEngineUrlSchemeHandler):
             # WORKAROUND for https://bugreports.qt.io/browse/QTBUG-63378
             profile.installUrlSchemeHandler(b'chrome-error', self)
             profile.installUrlSchemeHandler(b'chrome-extension', self)
+
+        profile.installUrlSchemeHandler(b'aliim', self)
+        profile.installUrlSchemeHandler(b'tencent', self)
 
     def _check_initiator(self, job):
         """Check whether the initiator of the job should be allowed.
@@ -65,6 +69,9 @@ class QuteSchemeHandler(QWebEngineUrlSchemeHandler):
             request_url = job.requestUrl()
         except AttributeError:
             # Added in Qt 5.11
+            return True
+
+        if request_url.scheme() in ['aliim', 'tencent']:
             return True
 
         # https://codereview.qt-project.org/#/c/234849/
@@ -115,6 +122,11 @@ class QuteSchemeHandler(QWebEngineUrlSchemeHandler):
 
         if job.requestMethod() != b'GET':
             job.fail(QWebEngineUrlRequestJob.RequestDenied)
+            return
+
+        if url.scheme() in ['aliim', 'tencent']:
+            subprocess.call(['xdg-open', url.toString()])
+            job.fail(QWebEngineUrlRequestJob.NoError)
             return
 
         assert url.scheme() == 'qute'
@@ -168,4 +180,8 @@ def init():
         scheme.setFlags(
             QWebEngineUrlScheme.LocalScheme |  # type: ignore[arg-type]
             QWebEngineUrlScheme.LocalAccessAllowed)
+        QWebEngineUrlScheme.registerScheme(scheme)
+        scheme = QWebEngineUrlScheme(b'aliim')
+        QWebEngineUrlScheme.registerScheme(scheme)
+        scheme = QWebEngineUrlScheme(b'tencent')
         QWebEngineUrlScheme.registerScheme(scheme)

@@ -149,6 +149,11 @@ class TabEventFilter(QObject):
             log.mouse.warning("Ignoring invalid click at {}".format(pos))
             return False
 
+        if e.button() == Qt.MidButton:
+            if self._tab.url().host() == "www.youtube.com":
+                self._tab.fake_key_press(Qt.Key_I)
+                return True
+
         if e.button() != Qt.NoButton:
             self._tab.elements.find_at_pos(pos, self._mousepress_insertmode_cb)
 
@@ -163,6 +168,10 @@ class TabEventFilter(QObject):
         Return:
             True if the event should be filtered, False otherwise.
         """
+        if _e.button() == Qt.MidButton:
+            if self._tab.url().host() == "www.youtube.com":
+                return True
+
         # We want to make sure we check the focus element after the WebView is
         # updated completely.
         QTimer.singleShot(0, self._mouserelease_insertmode)
@@ -240,16 +249,37 @@ class TabEventFilter(QObject):
             self._check_insertmode_on_release = True
             return
 
-        if elem.is_editable():
-            log.mouse.debug("Clicked editable element!")
-            if config.val.input.insert_mode.auto_enter:
-                modeman.enter(self._tab.win_id, usertypes.KeyMode.insert,
-                              'click', only_if_normal=True)
-        else:
-            log.mouse.debug("Clicked non-editable element!")
-            if config.val.input.insert_mode.auto_leave:
-                modeman.leave(self._tab.win_id, usertypes.KeyMode.insert,
-                              'click', maybe=True)
+        # if elem.is_editable():
+        #     log.mouse.debug("Clicked editable element!")
+        #     if config.val.input.insert_mode.auto_enter:
+        #         modeman.enter(self._tab.win_id, usertypes.KeyMode.insert,
+        #                       'click', only_if_normal=True)
+        # else:
+        #     log.mouse.debug("Clicked non-editable element!")
+        #     if config.val.input.insert_mode.auto_leave:
+        #         modeman.leave(self._tab.win_id, usertypes.KeyMode.insert,
+        #                       'click', maybe=True)
+
+    def _mousepress_middle_cb(self, elem):
+        """Check if the clicked element is editable."""
+        if elem is None:
+            # Something didn't work out, let's find the focus element after
+            # a mouse release.
+            log.mouse.debug("Got None element, scheduling check on "
+                            "mouse release")
+            self._check_insertmode_on_release = True
+            return
+
+        # if elem.is_editable():
+        #     log.mouse.debug("Clicked editable element!")
+        #     if config.val.input.insert_mode.auto_enter:
+        #         modeman.enter(self._tab.win_id, usertypes.KeyMode.insert,
+        #                       'click', only_if_normal=True)
+        # else:
+        #     log.mouse.debug("Clicked non-editable element!")
+        #     if config.val.input.insert_mode.auto_leave:
+        #         modeman.leave(self._tab.win_id, usertypes.KeyMode.insert,
+        #                       'click', maybe=True)
 
     def _mouserelease_insertmode(self):
         """If we have an insertmode check scheduled, handle it."""

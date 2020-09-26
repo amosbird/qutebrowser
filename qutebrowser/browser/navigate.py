@@ -156,7 +156,7 @@ def _find_prevnext(prev, elems):
     """Find a prev/next element in the given list of elements."""
     # First check for <link rel="prev(ious)|next"> as well as
     # e.g. <a class="nav-(prev|next)"> (Hugo)
-    rel_values = {'prev', 'previous'} if prev else {'next'}
+    rel_values = {'prev', 'previous'} if prev else {'next', 'ytp-next-button'}
     classes = {'nav-prev'} if prev else {'nav-next'}
     for e in elems:
         if e.tag_name() not in ['link', 'a']:
@@ -167,6 +167,14 @@ def _find_prevnext(prev, elems):
         elif e.classes() & classes:
             log.hints.debug("Found {!r} with class={}".format(e, e.classes()))
             return e
+
+    # taobao
+    trace_value = 'srp_bottom_up' if prev else 'srp_bottom_pagedown'
+    for e in elems:
+        if e.tag_name() == 'a':
+            if 'trace' in e and e['trace'] == trace_value:
+                log.hints.info("Found {!r} with trace={}".format(e, e['trace']))
+                return e
 
     # Then check for regular links/buttons.
     elems = [e for e in elems if e.tag_name() != 'link']
@@ -206,15 +214,36 @@ def prevnext(*, browsertab, win_id, baseurl, prev=False,
         window: True to open in a new window, False for the current one.
     """
     def _prevnext_cb(elems):
+        if not prev:
+            flag = True
+            for e in elems:
+                if e.tag_name() == 'div':
+                    flag = False
+                    break
+
+            if flag:
+                for e in elems:
+                    if e.tag_name() == 'button':
+                        if 'class' in e and 'ytp-miniplayer-expand-watch-page-button' in set(e['class'].split(' ')):
+                            log.hints.debug("Found {!r} with rel={}".format(e, e['class']))
+                            e._js_call('click')
+                            return
+
         elem = _find_prevnext(prev, elems)
         word = 'prev' if prev else 'forward'
 
         if elem is None:
             message.error("No {} links found!".format(word))
             return
+
+        # taobao
+        if 'trace' in elem:
+            elem._js_call('click')
+            return
+
         url = elem.resolve_url(baseurl)
         if url is None:
-            message.error("No {} links found!".format(word))
+            elem._js_call('click')
             return
         qtutils.ensure_valid(url)
 

@@ -224,7 +224,7 @@ def _process_args(args):
             error.handle_fatal_exc(err, 'Cannot start in private mode',
                                    no_err_windows=args.no_err_windows)
             sys.exit(usertypes.Exit.err_init)
-        window = mainwindow.MainWindow(private=private)
+        window = mainwindow.MainWindow(private=private, first=True)
         if not args.nowindow:
             window.show()
         q_app.setActiveWindow(window)

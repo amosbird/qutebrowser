@@ -837,6 +837,20 @@ class WebEngineElements(browsertab.AbstractElements):
         js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)
         self._tab.run_js_async(js_code, js_cb)
 
+    def find_css_first_focus(self, selector, callback, error_cb, *,
+                 only_visible=False):
+        js_code = javascript.assemble('webelem', 'find_css_first_focus', selector,
+                                      only_visible)
+        js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)
+        self._tab.run_js_async(js_code, js_cb)
+
+    def find_css_last_focus(self, selector, callback, error_cb, *,
+                 only_visible=False):
+        js_code = javascript.assemble('webelem', 'find_css_last_focus', selector,
+                                      only_visible)
+        js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)
+        self._tab.run_js_async(js_code, js_cb)
+
     def find_id(self, elem_id, callback):
         js_code = javascript.assemble('webelem', 'find_id', elem_id)
         js_cb = functools.partial(self._js_cb_single, callback)
@@ -1149,11 +1163,12 @@ class _WebEngineScripts(QObject):
                 scripts.remove(script)
 
     def init(self):
+        my_code = "const inputSelector = '" + ','.join(config.val.hints.selectors['inputs']) + "';"
         """Initialize global qutebrowser JavaScript."""
         js_code = javascript.wrap_global(
             'scripts',
             utils.read_file('javascript/scroll.js'),
-            utils.read_file('javascript/webelem.js'),
+            my_code + utils.read_file('javascript/webelem.js'),
             utils.read_file('javascript/caret.js'),
         )
         if not qtutils.version_check('5.12'):
@@ -1277,10 +1292,6 @@ class _WebEngineScripts(QObject):
             # Override the @run-at value parsed by QWebEngineScript if desired.
             if injection_point:
                 new_script.setInjectionPoint(injection_point)
-            elif script.needs_document_end_workaround():
-                log.greasemonkey.debug("Forcing @run-at document-end for {}"
-                                       .format(script.name))
-                new_script.setInjectionPoint(QWebEngineScript.DocumentReady)
 
             log.greasemonkey.debug('adding script: {}'
                                    .format(new_script.name()))

@@ -69,7 +69,10 @@ def get_window(*, via_ipc: bool,
 
     # Try to find the existing tab target if opening in a tab
     if target not in {'window', 'private-window'}:
-        window = get_target_window()
+        if target == 'last-visible':
+            window = objreg.last_visible_window()
+        else:
+            window = get_target_window()
         should_raise = target not in {'tab-silent', 'tab-bg-silent'}
 
     is_private = target == 'private-window'
@@ -188,7 +191,8 @@ class MainWindow(QWidget):
     def __init__(self, *,
                  private: bool,
                  geometry: typing.Optional[QByteArray] = None,
-                 parent: typing.Optional[QWidget] = None) -> None:
+                 parent: typing.Optional[QWidget] = None,
+                 first: bool = False) -> None:
         """Create a new main window.
 
         Args:
@@ -219,7 +223,10 @@ class MainWindow(QWidget):
         objreg.register('message-bridge', message_bridge, scope='window',
                         window=self.win_id)
 
-        self.setWindowTitle('qutebrowser')
+        if first:
+            self.setWindowTitle('qbdaemon')
+        else:
+            self.setWindowTitle('qutebrowser')
         self._vbox = QVBoxLayout(self)
         self._vbox.setContentsMargins(0, 0, 0, 0)
         self._vbox.setSpacing(0)

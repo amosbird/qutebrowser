@@ -36,6 +36,9 @@
 
 "use strict";
 
+var lastActiveInputElement;
+var lastInputElementWithEventListener;
+
 window._qutebrowser.webelem = (function() {
     const funcs = {};
     const elements = [];
@@ -148,6 +151,32 @@ window._qutebrowser.webelem = (function() {
             const attr = elem.attributes[i];
             attributes[attr.name] = attr.value;
         }
+
+        if (out.tag_name.toLowerCase() === "link" || out.tag_name.toLowerCase() === "a") {
+            var children = elem.childNodes;
+            if (children) {
+                outer:
+                for (let i=0,len=children.length;i<len;i++) {
+                    var child = children[i];
+                    if (!child.attributes) continue;
+                    for (let j=0,len2=child.attributes.length; j<len2;++j) {
+                        const attr = child.attributes[j];
+                        if (attr.name === "alt" && attr.value === "Next") {
+                            attributes["rel"] = "next";
+                            break outer;
+                        }
+                        if (attr.name === "alt" && attr.value === "Previous") {
+                            attributes["rel"] = "prev";
+                            break outer;
+                        }
+                        if (attr.name === "class") {
+                            attributes["class"] = attr.value
+                            break outer;
+                        }
+                    }
+                }
+            }
+        }
         out.attributes = attributes;
 
         const client_rects = elem.getClientRects();
@@ -256,6 +285,176 @@ window._qutebrowser.webelem = (function() {
 
         return {"success": true, "result": out};
     };
+
+    funcs.find_css_first_focus = (selector, only_visible) => {
+        const out = [];
+
+        if (document.activeElement.matches(selector)) {
+            const active_elem = document.activeElement;
+            out.push(serialize_elem(active_elem));
+
+            // only focus on visible active
+            if (is_visible(active_elem))
+                return { success: true, result: out };
+        }
+
+        let elems;
+
+        try {
+            elems = document.querySelectorAll(selector);
+        } catch (ex) {
+            return {"success": false, "error": ex.toString()};
+        }
+
+        const subelem_frames = window.frames;
+
+        if (!only_visible) { // first
+            for (let i = 0; i < elems.length; ++i) {
+                if (is_visible(elems[i])) {
+                    out.push(serialize_elem(elems[i]));
+                } else {
+                    elems[i].scrollIntoView({block: "center", inline: "nearest"});
+                    out.push(serialize_elem(elems[i]));
+                }
+            }
+
+            // Recurse into frames and add them
+            for (let i = 0; i < subelem_frames.length; i++) {
+                if (iframe_same_domain(subelem_frames[i])) {
+                    const frame = subelem_frames[i];
+                    const subelems = frame.document.
+                          querySelectorAll(selector);
+                    for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
+                        if (is_visible(subelems[elem_num], frame)) {
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                        } else {
+                            subelems[elem_num].scrollIntoView({block: "center", inline: "nearest"});
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                        }
+                    }
+                }
+            }
+        } else { // visible elements take priority
+
+            var first_elem;
+            for (let i = 0; i < elems.length; ++i) {
+                if (is_visible(elems[i])) {
+                    out.push(serialize_elem(elems[i]));
+                    if (!first_elem)
+                        first_elem = elems[i];
+                }
+            }
+
+            // Recurse into frames and add them
+            for (let i = 0; i < subelem_frames.length; i++) {
+                if (iframe_same_domain(subelem_frames[i])) {
+                    const frame = subelem_frames[i];
+                    const subelems = frame.document.
+                          querySelectorAll(selector);
+                    for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
+                        if (is_visible(subelems[elem_num], frame)) {
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                            if (!first_elem)
+                                first_elem = subelems[elem_num];
+                        }
+                    }
+                }
+            }
+
+            for (let i = 0; i < elems.length; ++i) {
+                if (!is_visible(elems[i])) {
+                    out.push(serialize_elem(elems[i]));
+                    if (!first_elem)
+                        first_elem = elems[i];
+                }
+            }
+
+            // Recurse into frames and add them
+            for (let i = 0; i < subelem_frames.length; i++) {
+                if (iframe_same_domain(subelem_frames[i])) {
+                    const frame = subelem_frames[i];
+                    const subelems = frame.document.
+                          querySelectorAll(selector);
+                    for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
+                        if (!is_visible(subelems[elem_num], frame)) {
+                            subelems[elem_num].scrollIntoView({block: "center", inline: "nearest"});
+                            out.push(serialize_elem(subelems[elem_num], frame));
+                            if (!first_elem)
+                                first_elem = subelems[elem_num];
+                        }
+                    }
+                }
+            }
+
+            if (first_elem && !is_visible(first_elem)) {
+                first_elem.scrollIntoView({block: "center", inline: "nearest"});
+                out.push(serialize_elem(first_elem));
+            }
+        }
+        return {"success": true, "result": out};
+    };
+
+    funcs.find_css_last_focus = (selector, only_visible) => {
+        if (lastActiveInputElement == null)
+            return funcs.find_css_first_focus(selector, only_visible);
+
+        const out = [];
+
+        if (!is_visible(lastActiveInputElement)) {
+            lastActiveInputElement.scrollIntoView({
+                block: "center",
+                inline: "nearest"
+            });
+        }
+        out.push(serialize_elem(lastActiveInputElement));
+        return { success: true, result: out };
+    };
+
+    funcs.insert = () => {
+        function detectEscape(event) {
+            if (event.keyCode == 27) {
+                document.activeElement.blur();
+            }
+        }
+
+        function detectBlur(event) {
+            if (document.activeElement.matches(inputSelector)) {
+                lastActiveInputElement = document.activeElement;
+                if (lastInputElementWithEventListener != null)
+                    lastInputElementWithEventListener.removeEventListener("keyup", detectEscape, false);
+                document.activeElement.addEventListener("keyup", detectEscape, false);
+                lastInputElementWithEventListener = document.activeElement;
+            }
+        }
+
+        function changeTitle(event) {
+            document.title = document.title + " ";
+            console.log(document.title);
+        }
+
+        if (!window.insertBrowsingLoaded) {
+            window.insertBrowsingLoaded = true;
+            window.addEventListener("focus", detectBlur, true);
+            // function focusInHandler(event){
+            //     document.title = document.title + "a";
+            //     console.log(document.title);
+            // }
+            // function focusOutHandler(event){
+            //     document.title = document.title + "b";
+            //     console.log(document.title);
+            // }
+
+            // if (document.addEventListener){
+            //     document.addEventListener("focus", focusInHandler, true);
+            //     document.addEventListener("blur", focusOutHandler, true);
+            // } else {
+            //     document.observe("focusin", focusInHandler);
+            //     document.observe("focusout", focusOutHandler);
+            // }
+        }
+    };
+
+    window.setTimeout(funcs.insert(), 0);
 
     // Runs a function in a frame until the result is not null, then return
     // If no frame succeeds, return null
